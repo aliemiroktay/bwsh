@@ -7,12 +7,31 @@
 #include <ctype.h>
 
 #define INITIAL_BUFFER_SIZE 1024
-#define PATH_MAX 4096
 
-const char *PROMPT = "\033[34m>>bwsh==>>\033[0m ";
-const size_t PROMPT_LEN = 11; // Visible length without ANSI codes
+char *PROMPT;
+size_t PROMPT_LEN; // Visible length without ANSI codes
 
 void prompt(void) {
+    PROMPT = malloc(1);  // Start with an empty string
+    PROMPT[0] = '\0';  // Null-terminate the empty string
+
+    char *cwd = getcwd(NULL, 0);
+    if(cwd != NULL){
+    
+        // Concatenate ">>"
+        PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen(">>") + 1);
+        strcat(PROMPT, ">>");
+    
+        // Concatenate the current directory
+        PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen(cwd) + 1);
+        strcat(PROMPT, cwd);
+    
+        // Concatenate " ==>>"
+        PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen("==>>") + 1);
+        strcat(PROMPT, "==>> ");
+        PROMPT_LEN = strlen(PROMPT);
+    }
+    free(cwd);
     printf("%s", PROMPT);
     fflush(stdout);
 }
@@ -80,7 +99,7 @@ void parse_and_execute(char *input) {
     while (token != NULL) {
         args[i] = strdup(token);
         if (!args[i]) {
-            perror("strdup failed");
+            perror("!!! strdup failed");
             exit(1);
         }
         i++;
@@ -100,14 +119,18 @@ void parse_and_execute(char *input) {
         exit(0);
     } else if (args[0] && strcmp(args[0], "cd") == 0) {
         char *target_dir = NULL;
-        static char prev_dir[PATH_MAX]; // Stores last directory for "cd -"
+        static char *prev_dir = NULL; // Stores last directory for "cd -"
+
+        if (!args[0] || strcmp(args[0], "cd") != 0) {
+            return;
+        }
 
         if (!args[1] || strcmp(args[1], "~") == 0) {
             // Case: "cd" or "cd ~" → go to $HOME
             target_dir = getenv("HOME");
         } else if (strcmp(args[1], "-") == 0) {
             // Case: "cd -" → go to previous directory
-            if (prev_dir[0] == '\0') {
+            if (prev_dir == NULL) {
                 fprintf(stderr, "cd: no previous directory\n");
                 free(args);
                 return;
@@ -121,28 +144,37 @@ void parse_and_execute(char *input) {
                 free(args);
                 return;
             }
-            char expanded_path[PATH_MAX];
-            snprintf(expanded_path, sizeof(expanded_path), "%s%s", home, args[1] + 1);
+            size_t expanded_size = strlen(home) + strlen(args[1] + 1) + 1;
+            char *expanded_path = malloc(expanded_size);
+            snprintf(expanded_path, expanded_size, "%s%s", home, args[1] + 1);
             target_dir = expanded_path;
+            free(expanded_path);
         } else {
             // Case: "cd /normal/path"
             target_dir = args[1];
         }
 
         // Save current dir before changing (for "cd -")
-        char cwd[PATH_MAX];
-        getcwd(cwd, sizeof(cwd));
+        char *cwd = getcwd(NULL, 0);
 
         if (chdir(target_dir) != 0) {
             perror("cd failed");
         } else {
             // Update prev_dir only if cd succeeds
-            strncpy(prev_dir, cwd, sizeof(prev_dir));
+            if (prev_dir != NULL) {
+                free(prev_dir); // Free the previous directory if it was allocated
+            }
+            prev_dir = cwd; // Store the current directory in prev_dir
         }
     }else if (strcmp(args[0], "pwd") == 0) {
-        char cwd[1024];
-        getcwd(cwd, sizeof(cwd));
-        printf("%s\n", cwd);
+        char *cwd = getcwd(NULL, 0);
+        if(cwd == NULL){
+            perror("getcwd failed");
+            exit(1);
+        }else{
+            printf("%s\n", cwd);
+        }
+        free(cwd);
     } else if (strcmp(args[0], "export") == 0) {
         if (args[1]) {
             char *var = strtok(args[1], "=");
