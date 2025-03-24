@@ -10,7 +10,7 @@
 #define PATH_MAX 4096
 
 const char *PROMPT = "\033[34m>>bwsh==>>\033[0m ";
-const size_t PROMPT_LEN = 12; // Visible length without ANSI codes
+const size_t PROMPT_LEN = 11; // Visible length without ANSI codes
 
 void prompt(void) {
     printf("%s", PROMPT);
@@ -32,24 +32,67 @@ void execute(char **args) {
     }
 }
 
+char* expand_env_vars(const char *input) {
+    char *result = malloc(INITIAL_BUFFER_SIZE);
+    size_t result_len = 0;
+    size_t buf_size = INITIAL_BUFFER_SIZE;
+    result[0] = '\0';
+
+    for (size_t i = 0; input[i] != '\0';) {
+        if (input[i] == '$' && (isalnum(input[i+1]) || input[i+1] == '_')) {
+            // Extract variable name
+            size_t var_start = ++i;
+            while (isalnum(input[i]) || input[i] == '_') i++;
+            size_t var_len = i - var_start;
+
+            char var_name[var_len + 1];
+            strncpy(var_name, &input[var_start], var_len);
+            var_name[var_len] = '\0';
+
+            char *var_value = getenv(var_name);
+            if (var_value) {
+                size_t value_len = strlen(var_value);
+                while (result_len + value_len + 1 >= buf_size) {
+                    buf_size *= 2;
+                    result = realloc(result, buf_size);
+                }
+                strcat(result, var_value);
+                result_len += value_len;
+            }
+        } else {
+            // Normal character
+            if (result_len + 1 >= buf_size) {
+                buf_size *= 2;
+                result = realloc(result, buf_size);
+            }
+            result[result_len++] = input[i++];
+            result[result_len] = '\0';
+        }
+    }
+    return result;
+}
+
 void parse_and_execute(char *input) {
     char **args = malloc(INITIAL_BUFFER_SIZE * sizeof(char *));
-    if (!args) {
-        perror("Memory allocation failed");
-        exit(1);
-    }
-
+    // Tokenize with strdup
     char *token = strtok(input, " \t");
     int i = 0;
     while (token != NULL) {
-        args[i++] = token;
+        args[i] = strdup(token);
+        if (!args[i]) {
+            perror("strdup failed");
+            exit(1);
+        }
+        i++;
         token = strtok(NULL, " \t");
     }
     args[i] = NULL;
 
-    if (args[0] == NULL) {
-        free(args);
-        return;
+    // Expand variables in all arguments
+    for (int j = 0; j < i; j++) {
+        char *expanded = expand_env_vars(args[j]);
+        free(args[j]);
+        args[j] = expanded;
     }
 
     if (strcmp(args[0], "exit") == 0) {
@@ -113,7 +156,9 @@ void parse_and_execute(char *input) {
     } else {
         execute(args);
     }
-
+    for (int j = 0; j < i; j++) {
+        free(args[j]);
+    }
     free(args);
 }
 
@@ -141,14 +186,20 @@ char* read_input(void) {
         if (c == '\r' || c == '\n') {
             buffer[len] = '\0';
             break;
-        } else if (c == 127 || c == '\b') { // Backspace
+        }else if (c == 127 || c == '\b') { // Backspace
             if (cursor > 0 && len > 0) {
                 memmove(&buffer[cursor-1], &buffer[cursor], len - cursor);
                 len--;
                 cursor--;
-                printf("\r%s\033[K", PROMPT);
+                
+                // Clear and redraw line
+                printf("\r%s\033[K", PROMPT);  // Move to start, clear line
                 fwrite(buffer, 1, len, stdout);
-                printf("\033[%zuD", len - cursor); // Fix here
+                
+                // Move cursor to CORRECT position
+                if (cursor < len) {
+                    printf("\033[%zuD", len - cursor);  // FIXED: Use LEFT moves
+                }
                 fflush(stdout);
             }
         } else if (c == 27) { // Arrow keys
@@ -181,16 +232,14 @@ char* read_input(void) {
             memmove(&buffer[cursor+1], &buffer[cursor], len - cursor);
             buffer[cursor++] = c;
             len++;
-            printf("\r%s\033[K", PROMPT);  // Clear line and reprint prompt
+            printf("\r%s\033[K", PROMPT);
             fwrite(buffer, 1, len, stdout);
-            // Fix: Only move cursor back if we're not at end of input
             if (cursor < len) {
-                printf("\033[%zuD", len - cursor);
+                printf("\033[%zuD", len - cursor); // Adjust only if needed
             }
             fflush(stdout);
         }
     }
-
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
     printf("\n");
     return buffer;
