@@ -23,9 +23,13 @@ void prompt(void) {
         strcat(PROMPT, ">>");
     
         // Concatenate the current directory
-        PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen(cwd) + 1);
-        strcat(PROMPT, cwd);
-    
+        if(strcmp(cwd, getenv("HOME"))){
+            PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen(cwd) + 1);
+            strcat(PROMPT, cwd);
+        } else {
+            PROMPT = realloc(PROMPT, strlen(PROMPT) + 2);
+            strcat(PROMPT, "~");
+        }
         // Concatenate " ==>>"
         PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen("==>>") + 1);
         strcat(PROMPT, "==>> ");
