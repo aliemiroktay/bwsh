@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <pwd.h>
 #include <termios.h>
 #include <ctype.h>
 
@@ -15,13 +17,23 @@ void prompt(void) {
     PROMPT = malloc(1);  // Start with an empty string
     PROMPT[0] = '\0';  // Null-terminate the empty string
 
+    struct passwd *pw = getpwuid(getuid());
+
     char *cwd = getcwd(NULL, 0);
     if(cwd != NULL){
     
         // Concatenate ">>"
         PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen(">>") + 1);
         strcat(PROMPT, ">>");
-    
+
+        // Concentrate the user
+        PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen(pw->pw_name) + 1);
+        strcat(PROMPT, pw->pw_name);
+
+        // Concentrate @
+        PROMPT = realloc(PROMPT, strlen(prompt) + 2);
+        strcat(PROMPT, "@");
+
         // Concatenate the current directory
         if(strcmp(cwd, getenv("HOME"))){
             PROMPT = realloc(PROMPT, strlen(PROMPT) + strlen(cwd) + 1);
