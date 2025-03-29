@@ -14,7 +14,7 @@ char *PROMPT;
 size_t PROMPT_LEN; // Visible length without ANSI codes
 
 void prompt(void) {
-    free(PROMPT);
+    if(PROMPT != NULL) free(PROMPT);
     PROMPT = malloc(1);  // Start with an empty string
     PROMPT[0] = '\0';  // Null-terminate the empty string
 
@@ -137,7 +137,11 @@ void parse_and_execute(char *input) {
     }
 
     if (strcmp(args[0], "exit") == 0) {
+        for (int j = 0; j < i; j++) {
+            free(args[j]);
+        }
         free(args);
+        if(PROMPT != NULL) free(PROMPT);
         exit(0);
     } else if (args[0] && strcmp(args[0], "cd") == 0) {
         char *target_dir = NULL;
