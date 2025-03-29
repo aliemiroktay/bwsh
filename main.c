@@ -14,6 +14,7 @@ char *PROMPT;
 size_t PROMPT_LEN; // Visible length without ANSI codes
 
 void prompt(void) {
+    free(PROMPT);
     PROMPT = malloc(1);  // Start with an empty string
     PROMPT[0] = '\0';  // Null-terminate the empty string
 
@@ -31,7 +32,7 @@ void prompt(void) {
         strcat(PROMPT, pw->pw_name);
 
         // Concentrate @
-        PROMPT = realloc(PROMPT, strlen(prompt) + 2);
+        PROMPT = realloc(PROMPT, strlen(PROMPT) + 2);
         strcat(PROMPT, "@");
 
         // Concatenate the current directory
@@ -108,6 +109,11 @@ char* expand_env_vars(const char *input) {
 }
 
 void parse_and_execute(char *input) {
+    // Handle empty inputs
+    if (input == NULL || strlen(input) == 0) {
+        return;
+    }
+
     char **args = malloc(INITIAL_BUFFER_SIZE * sizeof(char *));
     // Tokenize with strdup
     char *token = strtok(input, " \t");
@@ -294,7 +300,7 @@ char* read_input(void) {
 }
 
 /* here DOES need to work on it. do not use! */
-
+/*
 void run(char *entry){
     for(int i = 0; i < strlen(entry); i++){
         
@@ -311,10 +317,15 @@ void run(char *entry){
         }
     }
 }
+*/
 
 int main(void) {
     while (1) {
         char *input = read_input();
+        if (input == NULL || strlen(input) == 0) {
+            free(input);
+            continue; // Skip empty input
+        }
         parse_and_execute(input);
         free(input);
     }
