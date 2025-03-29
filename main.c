@@ -138,10 +138,10 @@ void parse_and_execute(char *input) {
 
     if (strcmp(args[0], "exit") == 0) {
         for (int j = 0; j < i; j++) {
-	    free(args[j]);
+            free(args[j]);
         }
         free(args);
-	if(PROMPT != NULL) free(PROMPT);
+        if(PROMPT != NULL) free(PROMPT);
         exit(0);
     } else if (args[0] && strcmp(args[0], "cd") == 0) {
         char *target_dir = NULL;
