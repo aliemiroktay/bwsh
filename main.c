@@ -13,7 +13,7 @@
 char *PROMPT;
 size_t PROMPT_LEN; // Visible length without ANSI codes
 
-void prompt(void) {
+void update_prompt(void){
     if(PROMPT != NULL) free(PROMPT);
     PROMPT = malloc(1);  // Start with an empty string
     PROMPT[0] = '\0';  // Null-terminate the empty string
@@ -49,6 +49,9 @@ void prompt(void) {
         PROMPT_LEN = strlen(PROMPT);
     }
     free(cwd);
+}
+
+void prompt(void) {
     printf("%s", PROMPT);
     fflush(stdout);
 }
@@ -191,6 +194,7 @@ void parse_and_execute(char *input) {
                 free(prev_dir); // Free the previous directory if it was allocated
             }
             prev_dir = cwd; // Store the current directory in prev_dir
+            update_prompt();
         }
     }else if (strcmp(args[0], "pwd") == 0) {
         char *cwd = getcwd(NULL, 0);
@@ -303,27 +307,8 @@ char* read_input(void) {
     return buffer;
 }
 
-/* here DOES need to work on it. do not use! */
-/*
-void run(char *entry){
-    for(int i = 0; i < strlen(entry); i++){
-        
-        if(entry[i] == '$' && entry[i + 1] != '$'){
-            char *second = malloc(1);
-            if(entry[i+1] == '('){
-                for (int loc = i+2; entry[loc] != ')'; loc++){
-                    realloc(second, strlen(second) + 1);
-                    second[loc - (i + 2)] = entry[loc]; 
-                }
-                run(second);
-                free(second);
-            }
-        }
-    }
-}
-*/
-
 int main(void) {
+    update_prompt();
     while (1) {
         char *input = read_input();
         if (input == NULL || strlen(input) == 0) {
